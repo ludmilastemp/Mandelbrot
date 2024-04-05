@@ -15,6 +15,13 @@ struct Coordinates
     float y;
 };
 
+struct RGBColor
+{
+    int red;
+    int green;
+    int blue;
+};
+
 const Coordinates initialShift = { .x = -1.325f,
                                    .y = 0 };
 
@@ -25,16 +32,14 @@ const float dy              = 1.f / windowHeight;
 const float radiusMax_2     = 100;
 const int   nCyclesMax      = 256;
 const float minShift        = 10.f;
-const int   multiplierShift = 3;
+const int   multiplierShift = 5;
 const float multiplierZoom  = 1.1f;
+const int   maxColor        = 16;
 
-const int nCounts = 128 / (sizeof (float) * CHAR_BIT);
+const int nCounts = sizeof (__m128) / sizeof (float);
 
 void
 DrawMagicBeauty ();
-
-CheckKeyStateStatus
-CheckKeyState  (Coordinates* center, float* scale);
 
 __m128i
 FindNIteration (Coordinates* initial, float scale);
@@ -43,7 +48,10 @@ __m128
 CountIterationToColor (__m128i nIterations);
 
 RGBQUAD
-DetermineColor (int n, float f);
+DetermineColor (int n, float f, RGBColor rgbColor);
+
+CheckKeyStateStatus
+CheckKeyState  (Coordinates* center, float* scale, RGBColor* rgbColor);
 
 int main ()
 {
@@ -62,23 +70,24 @@ DrawMagicBeauty ()
     typedef RGBQUAD (&scr_t) [windowHeight][windowWidth];
     scr_t screen =  (scr_t) *txVideoMemory();
 
-    Coordinates center     = { .x = 0,
-                               .y = 0 };
+    RGBColor    rgbColor   = { .red   = maxColor,
+                               .green = maxColor,
+                               .blue  = maxColor };
+    Coordinates center     = { .x = initialShift.x,
+                               .y = initialShift.y };
     Coordinates initScale  = { .x = 1.0 * windowWidth  / windowWidth,
                                .y = 1.0 * windowHeight / windowWidth };
     float scale = 1;
 
     while (true)
     {
-        if (CheckKeyState(&center, &scale)) return;
+        if (CheckKeyState (&center, &scale, &rgbColor)) return;
 
         for (int iy = 0; iy < windowHeight; iy++)
         {
             if (GetAsyncKeyState (VK_EXIT)) break;
 
             Coordinates initial = { .x = 0, .y = 0 };
-
-            float dxMulScale = dx * scale;
 
             initial.x = (          - windowWidth  / 2) * dx * scale * initScale.x + center.x;
             initial.y = ((float)iy - windowHeight / 2) * dy * scale * initScale.y + center.y;
@@ -95,16 +104,12 @@ DrawMagicBeauty ()
                 iters.m128i = FindNIteration (&initial, scale);
                 __m128 I    = CountIterationToColor (iters.m128i);
 
-                int   a = 0;
-                float b = 0;
-                RGBQUAD color = { 0 };
-
                 for (int i = 0; i < 4; i++)
                 {
-                    a = iters.arr[i];
-                    b = (((float*)&I)[i]);
+                    int   a = iters.arr[i];
+                    float b = (((float*)&I)[i]);
 
-                    color = DetermineColor (a, b);
+                    RGBQUAD color = DetermineColor (a, b, rgbColor);
 
                     screen[iy][ix + i] = color;
                 }
@@ -121,18 +126,12 @@ FindNIteration (Coordinates* initial, float scale)
 {
     assert (initial);
 
-    __m128i nIterations = { 0 };
+    __m128i nIterations = _mm_set_epi32 (0, 0, 0, 0);
 
-    __m128 dxArray = _mm_set_ps1 (dx);
-    dxArray = _mm_mul_ps  (dxArray, _mm_set_ps  (3, 2, 1, 0));
-    dxArray = _mm_mul_ps  (dxArray, _mm_set_ps1 (scale));
+    __m128 dxArray = _mm_mul_ps ( _mm_mul_ps (_mm_set_ps1 (dx), _mm_set_ps  (3, 2, 1, 0)), _mm_set_ps1 (scale));
 
-    __m128 x0 = { 0 };
-    __m128 y0 = { 0 };
-
-    x0 = _mm_set_ps1 (initial->x);
-    x0 = _mm_add_ps  (_mm_set_ps1 (initial->x), dxArray);
-    y0 = _mm_set_ps1 (initial->y);
+    __m128 x0 = _mm_add_ps  (_mm_set_ps1 (initial->x), dxArray);
+    __m128 y0 = _mm_set_ps1 (initial->y);
 
     __m128 x = x0;
     __m128 y = y0;
@@ -150,10 +149,8 @@ FindNIteration (Coordinates* initial, float scale)
         int mask = _mm_movemask_ps (cmp);
         if (mask == 0) return nIterations;
 
-        x = _mm_sub_ps (x_2, y_2);
-        x = _mm_add_ps (x,   x0);
-        y = _mm_add_ps (xy,  xy);
-        y = _mm_add_ps (y,   y0);
+        x = _mm_add_ps (_mm_sub_ps (x_2, y_2), x0);
+        y = _mm_add_ps (_mm_add_ps (xy,  xy),  y0);
     }
 
     return nIterations;
@@ -172,18 +169,20 @@ CountIterationToColor (__m128i nIterations)
 }
 
 RGBQUAD
-DetermineColor (int n, float f)
+DetermineColor (int n, float f, RGBColor rgbColor)
 {
     BYTE    c     = (BYTE) f;
     RGBQUAD color = (n < nCyclesMax)
-        ? RGBQUAD { (BYTE) (255 - c), (BYTE) (c % 2 * 64), c}
+        ? RGBQUAD { (BYTE) (c * rgbColor.red   / maxColor),
+                    (BYTE) (c * rgbColor.green / maxColor),
+                    (BYTE) (c * rgbColor.blue  / maxColor)}
         : RGBQUAD { };
 
     return color;
 }
 
 CheckKeyStateStatus
-CheckKeyState (Coordinates* center, float* scale)
+CheckKeyState (Coordinates* center, float* scale, RGBColor* rgbColor)
 {
     assert (center);
     assert (scale);
@@ -198,6 +197,25 @@ CheckKeyState (Coordinates* center, float* scale)
     if (txGetAsyncKeyState (VK_DOWN))  center->y -= shift * *scale * dy;
     if (txGetAsyncKeyState ('A'))      *scale    *= multiplierZoom;
     if (txGetAsyncKeyState ('Z'))      *scale    /= multiplierZoom;
+
+    int colorShift = 0;
+    if (txGetAsyncKeyState (VK_ADD))      colorShift = 1;
+    if (txGetAsyncKeyState (VK_SUBTRACT)) colorShift = -1;
+    if (colorShift != 0)
+    {
+        if (txGetAsyncKeyState ('R'))
+            if (0 <= rgbColor->red + colorShift &&
+                     rgbColor->red + colorShift <= maxColor)
+                rgbColor->red += colorShift;
+        if (txGetAsyncKeyState ('G'))
+            if (0 <= rgbColor->green + colorShift &&
+                     rgbColor->green + colorShift <= maxColor)
+                rgbColor->green += colorShift;
+        if (txGetAsyncKeyState ('B'))
+            if (0 <= rgbColor->blue + colorShift &&
+                     rgbColor->blue + colorShift <= maxColor)
+                rgbColor->blue += colorShift;
+    }
 
     return CONTINUE;
 }

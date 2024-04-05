@@ -14,7 +14,8 @@ struct Coordinates
     float y;
 };
 
-const Coordinates initialShift = { .x = -1.325f, .y = 0 };
+const Coordinates initialShift = { .x = -1.325f,
+                                   .y = 0 };
 
 const int   windowWidth     = 800;
 const int   windowHeight    = 600;
@@ -24,18 +25,19 @@ const float radiusMax_2     = 100;
 const int   nCyclesMax      = 256;
 const float minShift        = 10.f;
 const int   multiplierShift = 10;
+const float multiplierZoom  = 1.1f;
 
 void
 DrawMagicBeauty ();
-
-CheckKeyStateStatus
-CheckKeyState   (Coordinates* center, float* scale);
 
 int
 FindNIteration  (Coordinates* initial);
 
 RGBQUAD
 DetermineColor  (int n);
+
+CheckKeyStateStatus
+CheckKeyState   (Coordinates* center, float* scale);
 
 int main ()
 {
@@ -54,7 +56,8 @@ DrawMagicBeauty ()
     typedef RGBQUAD (&scr_t) [windowHeight][windowWidth];
     scr_t scr = (scr_t) *txVideoMemory();
 
-    Coordinates center     = { .x = 0, .y = 0 };
+    Coordinates center     = { .x = initialShift.x,
+                               .y = initialShift.y };
     Coordinates initScale  = { .x = 1.0 * windowWidth  / windowWidth,
                                .y = 1.0 * windowHeight / windowWidth };
     float scale = 1;
@@ -69,11 +72,8 @@ DrawMagicBeauty ()
 
             Coordinates initial = { .x = 0, .y = 0 };
 
-            initial.x = (          - windowWidth  / 2 + center.x) *
-                dx * scale * initScale.x + initialShift.x;
-
-            initial.y = ((float)iy - windowHeight / 2 + center.y) *
-                dy * scale * initScale.y + initialShift.y;
+            initial.x = (          - windowWidth  / 2) * dx * scale * initScale.x + center.x;
+            initial.y = ((float)iy - windowHeight / 2) * dy * scale * initScale.y + center.y;
 
             for (int ix = 0; ix < windowWidth; ix++, initial.x += dx * scale)
             {
@@ -135,12 +135,13 @@ CheckKeyState (Coordinates* center, float* scale)
 
     float shift = minShift * (txGetAsyncKeyState (VK_SHIFT) ? multiplierShift : 1);
 
-    if (txGetAsyncKeyState (VK_RIGHT)) center->x += shift;
-    if (txGetAsyncKeyState (VK_LEFT))  center->x -= shift;
-    if (txGetAsyncKeyState (VK_UP))    center->y += shift;
-    if (txGetAsyncKeyState (VK_DOWN))  center->y -= shift;
-    if (txGetAsyncKeyState ('A'))      *scale    += shift * dy;
-    if (txGetAsyncKeyState ('Z'))      *scale    -= shift * dy;
+    if (txGetAsyncKeyState (VK_RIGHT)) center->x += shift * *scale * dx;
+    if (txGetAsyncKeyState (VK_LEFT))  center->x -= shift * *scale * dx;
+    if (txGetAsyncKeyState (VK_UP))    center->y += shift * *scale * dy;
+    if (txGetAsyncKeyState (VK_DOWN))  center->y -= shift * *scale * dy;
+    if (txGetAsyncKeyState ('A'))      *scale    *= multiplierZoom;
+    if (txGetAsyncKeyState ('Z'))      *scale    /= multiplierZoom;
 
     return CONTINUE;
 }
+
