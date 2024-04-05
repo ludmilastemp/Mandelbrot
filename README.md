@@ -8,15 +8,21 @@
 ## Графическое управление
 | Клавиша           |     Действие                         |
 |-------------------|--------------------------------------|
-| стрелка вверх      |Сдвиг вверх                           |
-| стрелка вниз       |Сдвиг вниз                            |
-| стрелка влево      |Сдвиг влево                           |
-| стрелка вправо     |Сдвиг вправо                          |
-|   A               |Увеличение изображения                |
-|   Z               |Уменьшение изображения                |
-|  shift            |Увеличения скорости переещения     |
+| стрелка вверх     |Сдвиг вверх                           |
+| стрелка вниз      |Сдвиг вниз                            |
+| стрелка влево     |Сдвиг влево                           |
+| стрелка вправо    |Сдвиг вправо                          |
+|   Z               |Увеличение изображения                |
+|   A               |Уменьшение изображения                |
+|  shift            |Увеличение скорости перемещения       |
+|   +               |Увеличение содержания цвета           |
+|   -               |Уменьшение содержания цвета           |
+|   R               |Изменение красного цвета              |
+|   G               |Изменение зеленого цвета              |
+|   B               |Изменение синего цвета                |
 
-## Теоретические сведени
+
+## Теоретические сведения
 ### Множество Мандельброта
 Множество Мандельброта - фрактал, множество точек на комплексной плоскости, для которых задано рекуррентное соотношение z_(n+1) = z_n 2 + z_0. Классический способ раскраски предполагает: множество точек, для которых существует действительное R, такое что для любых натуральных n выполняется |z_n|< R.
 В работе координаты плоскости (x, y) рассчитываются по следующей формуле. x = x 2 + y 2 + x_0, y = 2xy + y_0. Для ускорения вычислений x 2, y 2 рассчитываются один раз.
@@ -25,7 +31,7 @@
 Разрешение AVX (Advanced Vector eXtensions – усовершенствованные векторные расширения) - мультимедийные инструкции, ориентированные на параллельное выполнение нескольких операций в режиме SIMD (Single-Instruction, Multiple-Data - одиночный поток команд, множественный поток данных) и на работу со скалярными данными с плавающей точкой. Изначально avx инструкции были созданы для обработки графики и изображений. Сейчас с их помощью производится поддержка операций с плавающей точкой в архитектуре x86-64.
 
 ## Немного об отрисовки множества Мандельброта (раскраски)
-Цвет пикселей зависит от количества итераций подсчета координат для каждой точки z_0. Цвет задается в режиме RGB. Зависимость цвета от количества итераций приведена в таблице:
+Цвет пикселей зависит от количества итераций подсчета координат для каждой точки z_0. Цвет задается в режиме RGB. По горячим клавишам можно изменять цвет изображения.
 
 ## Методика измерений
 Подсчет количества итераций для каждой координаты производится 10 раз, после чего берется среднее время работы программы. Также считается дисперсия.
@@ -36,7 +42,7 @@
 ОС: Windows 10
 Компилятор: g++.exe (GCC) 4.8.1
 Уровни оптимизации: O0, O1, O2, O3
-Полный список флагов: -msse3 -mmmx -Wshadow -Winit-self -Wredundant-decls -Wcast-align -Wundef -Wfloat-equal -Winline -Wunreachable-code -Wmissing-declarations -Wmissing-include-dirs -Wswitch-enum -Wswitch-default -Weffc++ -Wmain -Wextra -Wall -g -pipe -fexceptions -Wcast-qual -Wconversion -Wctor-dtor-privacy -Wempty-body -Wformat-security -Wformat=2 -Wignored-qualifiers -Wlogical-op -Wno-missing-field-initializers -Wnon-virtual-dtor -Woverloaded-virtual -Wpointer-arith -Wsign-promo -Wstack-usage=8192 -Wstrict-aliasing -Wstrict-null-sentinel -Wtype-limits -Wwrite-strings -Werror=vla -D_DEBUG -D_EJUDGE_CLIENT_SIDE
+Полный список флагов: -msse3 -Wshadow -Winit-self -Wredundant-decls -Wcast-align -Wundef -Wfloat-equal -Winline -Wunreachable-code -Wmissing-declarations -Wmissing-include-dirs -Wswitch-enum -Wswitch-default -Weffc++ -Wmain -Wextra -Wall -g -pipe -fexceptions -Wcast-qual -Wconversion -Wctor-dtor-privacy -Wempty-body -Wformat-security -Wformat=2 -Wignored-qualifiers -Wlogical-op -Wno-missing-field-initializers -Wnon-virtual-dtor -Woverloaded-virtual -Wpointer-arith -Wsign-promo -Wstack-usage=8192 -Wstrict-aliasing -Wstrict-null-sentinel -Wtype-limits -Wwrite-strings -Werror=vla -D_DEBUG -D_EJUDGE_CLIENT_SIDE
 
 ## Реализация
 ### Первая версия программы (примитивная)
@@ -67,7 +73,7 @@ for (int j = 0; j < nCounts; j++)
 }
 ```
 ### Третья версия программы (свои интринсики)
-Также есть массив, о операции с ним выполняются с помощью inline функций
+Также есть массив,  операции с ним выполняются с помощью inline функций
 ```
 inline void mm_add_ps  (float mm[4], const float mm1[4], const float mm2[4])
 {
@@ -117,7 +123,7 @@ if (mask == 0) return nIterations;
 Список всех измерений можно посмотреть в папке tests
 
 ## Расчет погрешностей
-Я расчитала дисперию по следующему алгоритму:
+Я посчитала дисперсию по следующему алгоритму:
 ```
 unsigned long long* data          = ReadData (nTest);
 unsigned long long  meanData      = SUM (data[i]) / nCycle;
